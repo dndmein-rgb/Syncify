@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router'
 import HomePage from './pages/HomePage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import * as Sentry from "@sentry/react";
+
 const SentryRoutes=Sentry.withSentryReactRouterV7Routing(Routes);
 
 

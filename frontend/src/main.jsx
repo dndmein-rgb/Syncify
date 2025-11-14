@@ -38,17 +38,6 @@ Sentry.init({
     }),
   ],
   tracesSampleRate: 1.0,
-  denyUrls: [
-    // Ignore errors from ad blockers and extensions
-    /extensions\//i,
-    /^chrome:\/\//i,
-  ],
-  beforeSend(event) {
-    // Silently ignore certain errors
-    return event;
-  },
-  transport: Sentry.makeFetchTransport,
-  maxBreadcrumbs: 50,
 });
 
 

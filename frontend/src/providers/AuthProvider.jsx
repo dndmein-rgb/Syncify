@@ -1,39 +1,38 @@
+import { createContext, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import React, { createContext, useEffect } from "react";
-import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
+import toast from "react-hot-toast";
 
-const AuthContext = createContext();
- export default function AuthProvider({ childern }) {
-    const { getToken } = useAuth();
-useEffect(() => {
- 
+const AuthContext = createContext({});
+
+export default function AuthProvider({ children }) {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    // setup axios interceptor
+
     const interceptor = axiosInstance.interceptors.request.use(
       async (config) => {
         try {
           const token = await getToken();
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
+          if (token) config.headers.Authorization = `Bearer ${token}`;
         } catch (error) {
-          if (
-            error.message?.includes("auth") ||
-            error.message?.includes("token")
-          ) {
-            toast.error("Authentication Error. Please login again.");
+          if (error.message?.includes("auth") || error.message?.includes("token")) {
+            toast.error("Authentication issue. Please refresh the page.");
           }
-          console.log("Error fetching auth token:", error);
+          console.log("Error getting token:", error);
         }
         return config;
       },
       (error) => {
-        console.log("Request Interceptor Error:", error);
+        console.error("Axios request error:", error);
         return Promise.reject(error);
       }
     );
-    return () => {
-      axiosInstance.interceptors.request.eject(interceptor);
-  }
-}, [getToken]);
-  return <AuthContext.Provider value={{}}>{childern}</AuthContext.Provider>;
+
+    // cleanup function to remove the interceptor, this is important to avoid memory leaks
+    return () => axiosInstance.interceptors.request.eject(interceptor);
+  }, [getToken]);
+
+  return <AuthContext.Provider value={{}}>{children}</AuthContext.Provider>;
 }
