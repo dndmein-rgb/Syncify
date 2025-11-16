@@ -53,11 +53,11 @@ const UsersList = ({ activeChannel }) => {
       }      const channel = client.channel("messaging", channelId, {
         members: [client.user.id, targetUser.id],
       });
-      await channel.watch();
+     await channel.watch();
       setSearchParams({ channel: channel.id });
     } catch (error) {
-      console.log("Error creating DM", error);
-      Sentry.captureException(error, {        Sentry.captureException(error, {
+      console.log("Error creating DM", error),
+        Sentry.captureException(error, {
           tags: { component: "UsersList" },
           extra: {
             context: "create_direct_message",
