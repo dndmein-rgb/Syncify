@@ -46,11 +46,8 @@ const UsersList = ({ activeChannel }) => {
 
     try {
       //  bc stream does not allow channelId to be longer than 64 chars
-      const sortedIds = [client.user.id, targetUser.id].sort();
-      const channelId = sortedIds.join("-");
-      if (channelId.length > 64) {
-        throw new Error(`Channel ID exceeds 64 chars: ${channelId.length}`);
-      }      const channel = client.channel("messaging", channelId, {
+       const channelId = [client.user.id, targetUser.id].sort().join("-").slice(0, 64);
+      const channel = client.channel("messaging", channelId, {
         members: [client.user.id, targetUser.id],
       });
      await channel.watch();
@@ -97,7 +94,7 @@ const UsersList = ({ activeChannel }) => {
             onClick={() => startDirectMessage(user)}
             className={`str-chat__channel-preview-messenger  ${
               isActive &&
-              "!bg-black/20 !hover:bg-black/20 border-l-8 border-purple-500 shadow-lg"            }`}
+              "bg-black/20! !hover:bg-black/20 border-l-8 border-purple-500 shadow-lg"            }`}
           >
             <div className="flex items-center gap-2 w-full">
               <div className="relative">
