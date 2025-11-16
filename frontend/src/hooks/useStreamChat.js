@@ -60,7 +60,7 @@ export const useStreamChat = () => {
         });
       }
     };
-
+    
     connect();
 
     // cleanup
