@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { useChatContext } from "stream-chat-react";
-
 import * as Sentry from "@sentry/react";
 import { CircleIcon } from "lucide-react";
 
@@ -11,7 +10,7 @@ const UsersList = ({ activeChannel }) => {
   const [_, setSearchParams] = useSearchParams();
 
   const fetchUsers = useCallback(async () => {
-    if (!client?.user) return;
+    if (!client?.user) return [];
 
     const response = await client.queryUsers(
       { id: { $ne: client.user.id } },
@@ -19,84 +18,93 @@ const UsersList = ({ activeChannel }) => {
       { limit: 20 }
     );
 
-    const usersOnly = response.users.filter(
-      (user) => !user.id.startsWith("recording-")
-    );
-
-    return usersOnly;
+    return response.users.filter((u) => !u.id.startsWith("recording-"));
   }, [client]);
 
-  const {
-    data: users = [],
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data: users = [], isLoading, isError } = useQuery({
     queryKey: ["users-list", client?.user?.id],
     queryFn: fetchUsers,
     enabled: !!client?.user,
-    staleTime: 1000 * 60 * 5, // 5 mins
+    staleTime: 1000 * 60 * 5,
   });
 
-  // staleTime
-  // what it does: tells React Query the data is "fresh" for 5 minutes
-  // behavior: during these 5 minutes, React Query WON'T refetch the data automatically
+  // ------------------------------------------------------
+  // 1. BUILD DM CHANNEL OBJECTS (STABLE, OUTSIDE RENDER)
+  // ------------------------------------------------------
+  const dmChannels = useMemo(() => {
+    if (!users.length || !client?.user) return {};
 
+    const map = {};
+    for (const user of users) {
+      const channelId = [client.user.id, user.id]
+        .sort()
+        .join("-")
+        .slice(0, 64);
+
+      map[user.id] = client.channel("messaging", channelId, {
+        members: [client.user.id, user.id],
+      });
+    }
+    return map;
+  }, [users, client]);
+
+  // ------------------------------------------------------
+  // 2. WATCH ALL DM CHANNELS EXACTLY ONCE
+  // ------------------------------------------------------
+  useEffect(() => {
+    const channels = Object.values(dmChannels);
+    if (channels.length === 0) return;
+
+    channels.forEach((ch) => {
+      ch.watch().catch((err) => {
+        console.error("DM channel watch failed", err);
+      });
+    });
+  }, [dmChannels]);
+
+  // ------------------------------------------------------
+  // 3. START DM
+  // ------------------------------------------------------
   const startDirectMessage = async (targetUser) => {
-    if (!targetUser || !client?.user) return;
+    const channel = dmChannels[targetUser.id];
+    if (!channel) return;
 
     try {
-      //  bc stream does not allow channelId to be longer than 64 chars
-       const channelId = [client.user.id, targetUser.id].sort().join("-").slice(0, 64);
-      const channel = client.channel("messaging", channelId, {
-        members: [client.user.id, targetUser.id],
-      });
-     await channel.watch();
+      await channel.watch();
       setSearchParams({ channel: channel.id });
-    } catch (error) {
-      console.log("Error creating DM", error),
-        Sentry.captureException(error, {
-          tags: { component: "UsersList" },
-          extra: {
-            context: "create_direct_message",
-            targetUserId: targetUser?.id,
-          },
-        });
+    } catch (err) {
+      console.error("Error creating DM", err);
+      Sentry.captureException(err, {
+        tags: { component: "UsersList" },
+        extra: { targetUserId: targetUser?.id },
+      });
     }
   };
 
-  if (isLoading)
-    return <div className="team-channel-list__message">Loading users...</div>;
-  if (isError)
-    return (
-      <div className="team-channel-list__message">Failed to load users</div>
-    );
-  if (!users.length)
-    return (
-      <div className="team-channel-list__message">No other users found</div>
-    );
+  if (isLoading) return <div className="team-channel-list__message">Loading users...</div>;
+  if (isError) return <div className="team-channel-list__message">Failed to load users</div>;
+  if (!users.length) return <div className="team-channel-list__message">No other users found</div>;
 
+  // ------------------------------------------------------
+  // 4. RENDER LIST (NO CHANNEL CREATION HERE)
+  // ------------------------------------------------------
   return (
     <div className="team-channel-list__users">
       {users.map((user) => {
-        const channelId = [client.user.id, user.id]
-          .sort()
-          .join("-")
-          .slice(0, 64);
-        const channel = client.channel("messaging", channelId, {
-          members: [client.user.id, user.id],
-        });
-        const unreadCount = channel.countUnread;
-        const isActive = activeChannel && activeChannel.id === channelId;
+        const channel = dmChannels[user.id];
+        const unread = channel?.countUnread() || 0;
+        const isActive = activeChannel?.id === channel?.id;
 
         return (
           <button
             key={user.id}
             onClick={() => startDirectMessage(user)}
-            className={`str-chat__channel-preview-messenger  ${
-              isActive &&
-              "bg-black/20! !hover:bg-black/20 border-l-8 border-purple-500 shadow-lg"            }`}
+            className={`str-chat__channel-preview-messenger ${
+              isActive && "bg-black/20! border-l-8 border-purple-500 shadow-lg"
+            }`}
           >
             <div className="flex items-center gap-2 w-full">
+
               <div className="relative">
                 {user.image ? (
                   <img
@@ -107,7 +115,7 @@ const UsersList = ({ activeChannel }) => {
                 ) : (
                   <div className="w-4 h-4 rounded-full bg-gray-400 flex items-center justify-center">
                     <span className="text-xs text-white">
-                      {(user.name || user.id).charAt(0).toUpperCase()}
+                      {(user.name || user.id)[0].toUpperCase()}
                     </span>
                   </div>
                 )}
@@ -121,13 +129,11 @@ const UsersList = ({ activeChannel }) => {
                 />
               </div>
 
-              <span className="str-chat__channel-preview-messenger-name truncate">
-                {user.name || user.id}
-              </span>
+              <span className="truncate">{user.name || user.id}</span>
 
-              {unreadCount > 0 && (
-                <span className="flex items-center justify-center ml-2 size-4 text-xs rounded-full bg-red-500 ">
-                  {unreadCount}
+              {unread > 0 && (
+                <span className="flex items-center justify-center ml-2 size-4 text-xs rounded-full bg-red-500">
+                  {unread}
                 </span>
               )}
             </div>

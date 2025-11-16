@@ -49,7 +49,7 @@ const HomePage = () => {
         <div className="chat-container">
           {/* LEFT SIDEBAR */}
           <div className="str-chat__channel-list">
-            <div className="team-channel-list">
+            <div className="team-channel-list"> 
               {/* HEADER */}
               <div className="team-channel-list__header gap-4">
                 <div className="brand-container">
