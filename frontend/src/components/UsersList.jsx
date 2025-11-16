@@ -46,18 +46,18 @@ const UsersList = ({ activeChannel }) => {
 
     try {
       //  bc stream does not allow channelId to be longer than 64 chars
-      const channelId = [client.user.id, targetUser.id]
-        .sort()
-        .join("-")
-        .slice(0, 64);
-      const channel = client.channel("messaging", channelId, {
+      const sortedIds = [client.user.id, targetUser.id].sort();
+      const channelId = sortedIds.join("-");
+      if (channelId.length > 64) {
+        throw new Error(`Channel ID exceeds 64 chars: ${channelId.length}`);
+      }      const channel = client.channel("messaging", channelId, {
         members: [client.user.id, targetUser.id],
       });
       await channel.watch();
       setSearchParams({ channel: channel.id });
     } catch (error) {
-      console.log("Error creating DM", error),
-        Sentry.captureException(error, {
+      console.log("Error creating DM", error);
+      Sentry.captureException(error, {        Sentry.captureException(error, {
           tags: { component: "UsersList" },
           extra: {
             context: "create_direct_message",
@@ -88,7 +88,7 @@ const UsersList = ({ activeChannel }) => {
         const channel = client.channel("messaging", channelId, {
           members: [client.user.id, user.id],
         });
-        const unreadCount = channel.countUnread();
+        const unreadCount = channel.countUnread;
         const isActive = activeChannel && activeChannel.id === channelId;
 
         return (
@@ -97,8 +97,7 @@ const UsersList = ({ activeChannel }) => {
             onClick={() => startDirectMessage(user)}
             className={`str-chat__channel-preview-messenger  ${
               isActive &&
-              "!bg-black/20 !hover:bg-black/20 border-l-8 border-purple-500 shadow-lg0"
-            }`}
+              "!bg-black/20 !hover:bg-black/20 border-l-8 border-purple-500 shadow-lg"            }`}
           >
             <div className="flex items-center gap-2 w-full">
               <div className="relative">

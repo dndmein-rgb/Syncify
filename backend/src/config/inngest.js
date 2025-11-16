@@ -2,8 +2,7 @@ import { Inngest } from "inngest";
 import { connectDB } from "./db.js";
 import { User } from "../models/user.model.js";
 import { ENV } from "./env.js";
-import { addUsersToPublicChannels, upsertStreamUser } from "./stream.js";
-
+import { addUsersToPublicChannels, deleteStreamUser, upsertStreamUser } from "./stream.js";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "Syncify",signingKey: ENV.INNGEST_EVENT_KEY });
