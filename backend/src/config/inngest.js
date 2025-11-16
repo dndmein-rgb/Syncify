@@ -2,7 +2,7 @@ import { Inngest } from "inngest";
 import { connectDB } from "./db.js";
 import { User } from "../models/user.model.js";
 import { ENV } from "./env.js";
-import { upsertStreamUser } from "./stream.js";
+import { addUsersToPublicChannels, upsertStreamUser } from "./stream.js";
 
 
 // Create a client to send and receive events
@@ -28,6 +28,7 @@ const syncUser=inngest.createFunction(
                 name:newUser.name,
                 image:newUser.image
             })
+            await addUsersToPublicChannels(newUser.clerkId.toString());
     }
 
 );
